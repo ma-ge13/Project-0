@@ -28,7 +28,7 @@ app.post("/clients", async (req, res) => {
 
 // Account Object
 app.post("/clients/:id", async (req, res) => {
-    let client = await verifyClientExists(req.params.id, res);
+    let client = await verifyClientState(req.params.id, res);
     if(client === undefined) return;
     
     client = await clientDao.createAccount(req.params.id, req.body);
@@ -49,7 +49,7 @@ app.get("/clients", async (req, res) => {
 
 // Specific Client-object
 app.get("/clients/:id", async (req, res) => {
-    const client = await verifyClientExists(req.params.id, res);
+    const client = await verifyClientState(req.params.id, res);
     if(client === undefined) return;
 
     res.status(200).send(client);
@@ -57,7 +57,7 @@ app.get("/clients/:id", async (req, res) => {
 
 // All *OR* Specific Account-objects of Specific Client-object
 app.get("/clients/:id/accounts", async (req, res) => {
-    if((await verifyClientExists(req.params.id, res)) === undefined) return;
+    if((await verifyClientState(req.params.id, res)) === undefined) return;
 
    let accounts: Account[] = [];
     if (!_.isEmpty(req.query))
@@ -75,7 +75,7 @@ app.get("/clients/:id/accounts", async (req, res) => {
 
 // Properties of Specific Client-object
 app.put("/clients/:id", async (req, res) => {
-    let client = await verifyClientExists(req.params.id, res);
+    let client = await verifyClientState(req.params.id, res);
     if(client === undefined) return;
     
     client = await clientDao.updateClientById(req.params.id, req.body);
@@ -85,9 +85,9 @@ app.put("/clients/:id", async (req, res) => {
 
 // Increase in funds for Specific Account-object of Specific Client-object
 app.patch("/clients/:id/accounts/:accountName/deposit", async (req, res) => {
-    if((await verifyClientExists(req.params.id, res)) === undefined) return;
+    if((await verifyClientState(req.params.id, res)) === undefined) return;
 
-    let account = await verifyAccountExists(req.params.id, req.params.accountName, res);
+    let account = await verifyAccountState(req.params.id, req.params.accountName, res);
     if(account === undefined) return;
 
     account = await clientDao.depositIntoAccountByName(req.params.id, req.params.accountName, req.body.amount);
@@ -97,9 +97,9 @@ app.patch("/clients/:id/accounts/:accountName/deposit", async (req, res) => {
 
 // Decrease in funds for Specific Account-object of Specific Client-object
 app.patch("/clients/:id/accounts/:accountName/withdraw", async (req, res) => {
-    if((await verifyClientExists(req.params.id, res)) === undefined) return;
+    if((await verifyClientState(req.params.id, res)) === undefined) return;
 
-    let account = await verifyAccountExists(req.params.id, req.params.accountName, res, req.body.amount);
+    let account = await verifyAccountState(req.params.id, req.params.accountName, res, req.body.amount);
     if(account === undefined) return;
     
     account = await clientDao.withdrawFromAccountByName(req.params.id, req.params.accountName, req.body.amount);
@@ -112,7 +112,7 @@ app.patch("/clients/:id/accounts/:accountName/withdraw", async (req, res) => {
 
 // Specific Client-object
 app.delete("/clients/:id", async (req, res) => {
-    if((await verifyClientExists(req.params.id, res)) === undefined) return;
+    if((await verifyClientState(req.params.id, res)) === undefined) return;
     
     await clientDao.deleteClientById(req.params.id);
     
@@ -123,7 +123,7 @@ app.delete("/clients/:id", async (req, res) => {
 
 // VERIFICATION ROUTINES:
 
-async function verifyClientExists(clientId: string, response): Promise<Client> {
+async function verifyClientState(clientId: string, response): Promise<Client> {
     let client: Client;
 
     try {
@@ -135,7 +135,7 @@ async function verifyClientExists(clientId: string, response): Promise<Client> {
     return client;
 }
 
-async function verifyAccountExists(clientId: string, accountName: string, response, amount?: number): Promise<Account> {
+async function verifyAccountState(clientId: string, accountName: string, response, amount?: number): Promise<Account> {
     let account: Account;
 
     try {
@@ -145,7 +145,7 @@ async function verifyAccountExists(clientId: string, accountName: string, respon
     }
 
     try {
-        if (!_.isEmpty(account) && (account.balance - amount) < 0) throw("INSUFFICIENT FUNDS.");
+        if (amount < 0 || (account.balance - amount) < 0) throw("INSUFFICIENT FUNDS.");
     } catch (error) {
         response.status(422).send(error);
         account = undefined;
